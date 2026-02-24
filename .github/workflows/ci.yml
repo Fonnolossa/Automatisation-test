@@ -1,0 +1,74 @@
+name: CI - Tests complets
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+
+  backend:
+    name: Backend - Tests Spring
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Run backend tests
+        working-directory: Backend/tp_automatisation_tests
+        run: mvn clean test
+
+
+  selenium:
+    name: Selenium - Tests E2E
+    runs-on: ubuntu-latest
+    needs: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+
+      # démarre le backend
+      - name: Start backend
+        working-directory: Backend/tp_automatisation_tests
+        run: |
+          mvn spring-boot:run -Dspring-boot.run.arguments=--server.port=8080 > backend.log 2>&1 &
+          echo "Backend starting..."
+          sleep 20
+          cat backend.log || true
+
+      # démarre le front end
+      - name: Start frontend
+        working-directory: Frontend/tp_automatisation_tests
+        run: |
+          npm ci
+          npm start > frontend.log 2>&1 &
+          echo "Frontend starting..."
+          sleep 30
+          cat frontend.log || true
+
+      # lance les tests Selenium 
+      - name: Run Selenium tests
+        working-directory: selenium-tests
+        run: mvn clean test
+
